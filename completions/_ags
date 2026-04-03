@@ -1,0 +1,88 @@
+#compdef ags
+
+_ags() {
+  local -a commands
+  commands=(
+    'scan:Discover all skills, commands, agents, and rules'
+    'skill-cost:How much context your skills consume'
+    'grab:Install skill from GitHub URL'
+    'export:Convert skill to another agent format'
+    'rm:Remove a skill, command, agent, or rule'
+    'stats:Usage stats and activity dashboard'
+    'list-agents:Show installed agents'
+    'init:Scaffold a new skill'
+    'completions:Generate shell completions'
+  )
+
+  local -a global_opts
+  global_opts=(
+    '--json[Output as JSON]'
+    '--help[Show help]'
+    '--version[Show version]'
+  )
+
+  if (( CURRENT == 2 )); then
+    _describe 'command' commands
+    return
+  fi
+
+  case "${words[2]}" in
+    scan)
+      _arguments \
+        '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--type[Filter by type]:type:(skill command rule agent)' \
+        '--scope[Filter by scope]:scope:(local global all)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    skill-cost|budget)
+      _arguments \
+        '--scope[Filter by scope]:scope:(local global all)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    grab)
+      _arguments \
+        '--to[Target agent]:agent:(claude cursor codex)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    export)
+      _arguments \
+        '--to[Target agent]:agent:(claude cursor codex)' \
+        '--all[Export all skills]' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    rm|remove)
+      _arguments \
+        '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    stats)
+      _arguments \
+        '--period[Time range]:period:(7d 14d 30d 90d 6m 1y week month year all-time)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    init)
+      _arguments \
+        '--agent[Target agent]:agent:(claude cursor codex)' \
+        '--name[Skill name]:name:' \
+        '--type[Skill type]:type:(skill command rule agent)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    list-agents)
+      _arguments \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    *)
+      _arguments $global_opts
+      ;;
+  esac
+}
+
+_ags "$@"
