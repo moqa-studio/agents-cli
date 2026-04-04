@@ -29,13 +29,23 @@ export function parseGitHubUrl(url: string): GitHubFileInfo | null {
   return { owner, repo, branch, path, rawUrl, fileName };
 }
 
+const MAX_FETCH_SIZE = 1_024 * 1_024; // 1MB
+const FETCH_TIMEOUT_MS = 10_000;
+
 export async function fetchRawContent(info: GitHubFileInfo): Promise<string> {
-  const response = await fetch(info.rawUrl);
+  const response = await fetch(info.rawUrl, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
 
   if (!response.ok) {
     throw new Error(
       `Failed to fetch ${info.rawUrl}: ${response.status} ${response.statusText}`
     );
+  }
+
+  const contentLength = Number(response.headers.get("content-length"));
+  if (contentLength > MAX_FETCH_SIZE) {
+    throw new Error(`File too large (${contentLength} bytes, max ${MAX_FETCH_SIZE})`);
   }
 
   return response.text();

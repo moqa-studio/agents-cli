@@ -41,7 +41,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     matches = allItems.filter((s) =>
       s.filePath === absTarget ||
       s.filePath === target ||
-      s.filePath.endsWith(target)
+      s.filePath.endsWith("/" + target)
     );
   } else {
     // Match by name

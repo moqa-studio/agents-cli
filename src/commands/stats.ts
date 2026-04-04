@@ -123,7 +123,9 @@ export async function run(args: ParsedArgs): Promise<void> {
 
         const filePath = resolve(dirPath, file);
         try {
-          const mtime = statSync(filePath).mtime;
+          const stat = statSync(filePath);
+          if (stat.size > 50 * 1024 * 1024) continue; // skip >50MB files
+          const mtime = stat.mtime;
 
           // Filter by period
           if (cutoff && mtime < cutoff) continue;

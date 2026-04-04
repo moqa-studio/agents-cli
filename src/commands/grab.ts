@@ -38,9 +38,10 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   const parsed = parseSkillFile(content);
-  const name = parsed.frontmatter.name
+  const rawName = parsed.frontmatter.name
     ? String(parsed.frontmatter.name)
     : nameFromFilePath(info.path);
+  const name = rawName.replace(/[\/\\]/g, "-").replace(/\.\./g, "");
 
   const tokens = estimateTokens(content);
 
