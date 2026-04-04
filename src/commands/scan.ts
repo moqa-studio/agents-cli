@@ -1,4 +1,4 @@
-import type { ParsedArgs, AgentName, SkillType, SkillScope, ScanResult, DiscoveredSkill } from "../types";
+import type { ParsedArgs, AgentName, SkillType, ScanResult, DiscoveredSkill } from "../types";
 import { scanAll } from "../core/scanner";
 import { isValidAgentName } from "../core/agents";
 import { formatTokens } from "../core/tokens";
@@ -6,11 +6,12 @@ import {
   printError,
   printJson,
   table,
-  heading,
   formatBadges,
   formatAgent,
   formatAgents,
   formatType,
+  shortenPath,
+  parseScopeFlag,
   c,
 } from "../utils/output";
 
@@ -46,21 +47,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     types = [t];
   }
 
-  let scopes: SkillScope[] | undefined;
-  if (args.flags.scope) {
-    const s = String(args.flags.scope);
-    const validScopes: Record<string, SkillScope[]> = {
-      local: ["project"],
-      global: ["user"],
-      project: ["project"],
-      user: ["user"],
-      all: undefined as unknown as SkillScope[],
-    };
-    if (!(s in validScopes)) {
-      return printError(`Unknown scope: ${s}. Use: local, global, all`, "INVALID_SCOPE", json);
-    }
-    scopes = validScopes[s] || undefined;
-  }
+  const scopes = parseScopeFlag(args.flags.scope, json);
 
   const skills = await scanAll({ agents, types, scopes });
 
@@ -96,7 +83,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     return;
   }
 
-  console.log(heading(`\nAGS Scan — ${skills.length} items found\n`));
+  console.log(c.bold(`\nAGS Scan — ${skills.length} items found\n`));
 
   // Group by type and render separate tables
   for (const section of TYPE_SECTIONS) {
@@ -172,14 +159,3 @@ function scopeLabel(scope: string): string {
   }
 }
 
-function shortenPath(filePath: string): string {
-  const home = process.env.HOME || "";
-  if (home && filePath.startsWith(home)) {
-    return "~" + filePath.slice(home.length);
-  }
-  const cwd = process.cwd();
-  if (filePath.startsWith(cwd + "/")) {
-    return filePath.slice(cwd.length + 1);
-  }
-  return filePath;
-}

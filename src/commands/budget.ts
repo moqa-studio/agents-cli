@@ -3,7 +3,6 @@ import { resolve } from "path";
 import type {
   ParsedArgs,
   AgentName,
-  SkillScope,
   BudgetResult,
   BudgetConfigFile,
   BudgetEntry,
@@ -17,28 +16,13 @@ import {
   getContextLimit,
 } from "../core/agents";
 import { estimateTokens, formatTokens, tokenBar } from "../core/tokens";
-import { printJson, printError, heading, formatAgent, c } from "../utils/output";
+import { printJson, printError, parseScopeFlag, formatAgent, c } from "../utils/output";
 
 export async function run(args: ParsedArgs): Promise<void> {
   const json = args.flags.json === true;
   const projectRoot = findProjectRoot();
 
-  // Parse scope filter
-  let scopes: SkillScope[] | undefined;
-  if (args.flags.scope) {
-    const s = String(args.flags.scope);
-    const validScopes: Record<string, SkillScope[] | undefined> = {
-      local: ["project"],
-      global: ["user"],
-      project: ["project"],
-      user: ["user"],
-      all: undefined,
-    };
-    if (!(s in validScopes)) {
-      return printError(`Unknown scope: ${s}. Use: local, global, all`, "INVALID_SCOPE", json);
-    }
-    scopes = validScopes[s];
-  }
+  const scopes = parseScopeFlag(args.flags.scope, json);
 
   // Scan only skills (not agents, commands, rules)
   const allItems = await scanAll({ projectRoot, scopes, types: ["skill"] });
@@ -122,14 +106,14 @@ export async function run(args: ParsedArgs): Promise<void> {
   const candidates: { text: string; tokens: number }[] = [];
 
   for (const skill of allItems) {
-    if (skill.badges.includes("STALE") && skill.badges.includes("HEAVY")) {
-      const daysAgo = Math.floor((Date.now() / 1000 - skill.lastModified) / 86400);
+    if (!skill.badges.includes("STALE")) continue;
+    const daysAgo = Math.floor((Date.now() / 1000 - skill.lastModified) / 86400);
+    if (skill.badges.includes("HEAVY")) {
       candidates.push({
         text: `Remove "${skill.name}" — stale (${daysAgo}d), saves ${formatTokens(skill.tokenEstimate)} tokens`,
         tokens: skill.tokenEstimate,
       });
-    } else if (skill.badges.includes("STALE")) {
-      const daysAgo = Math.floor((Date.now() / 1000 - skill.lastModified) / 86400);
+    } else {
       candidates.push({
         text: `Remove stale "${skill.name}" (${daysAgo}d unused, ${formatTokens(skill.tokenEstimate)} tokens)`,
         tokens: skill.tokenEstimate,
@@ -166,7 +150,7 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   // Human output
-  console.log(heading("\nAGS Skill Cost\n"));
+  console.log(c.bold("\nAGS Skill Cost\n"));
 
   // Config files
   if (configFiles.length > 0) {

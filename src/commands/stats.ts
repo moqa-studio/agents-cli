@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { resolve } from "path";
 import type { ParsedArgs, AgentName } from "../types";
 import { formatTokens } from "../core/tokens";
-import { printJson, printError, heading, formatAgent, c } from "../utils/output";
+import { printJson, printError, pad, formatAgent, c } from "../utils/output";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -123,7 +123,9 @@ export async function run(args: ParsedArgs): Promise<void> {
 
         const filePath = resolve(dirPath, file);
         try {
-          const mtime = statSync(filePath).mtime;
+          const stat = statSync(filePath);
+          if (stat.size > 50 * 1024 * 1024) continue; // skip >50MB files
+          const mtime = stat.mtime;
 
           // Filter by period
           if (cutoff && mtime < cutoff) continue;
@@ -314,7 +316,7 @@ export async function run(args: ParsedArgs): Promise<void> {
   const periodSuffix = periodLabel === "all time"
     ? `  ${c.dim(`all time (earliest data: ${earliest_str})`)}`
     : `  ${c.dim(periodLabel || "last 30 days")}`;
-  console.log(heading(`\nAGS Stats — ${formatAgent("claude" as AgentName)}`) + periodSuffix);
+  console.log(c.bold(`\nAGS Stats — ${formatAgent("claude" as AgentName)}`) + periodSuffix);
   console.log();
 
   // Overview line
@@ -349,7 +351,7 @@ export async function run(args: ParsedArgs): Promise<void> {
 
     for (let i = 0; i < maxRows; i++) {
       const left = i < topProjects.length
-        ? padLeft(renderBar(topProjects[i].displayName, topProjects[i].sessionCount, maxSessions, 6, 26), COL_LEFT)
+        ? pad(renderBar(topProjects[i].displayName, topProjects[i].sessionCount, maxSessions, 6, 26), COL_LEFT)
         : " ".repeat(COL_LEFT);
 
       const right = i < topIntegrations.length
@@ -385,7 +387,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     for (let i = 0; i < maxRows; i++) {
       let left = " ".repeat(COL_LEFT);
       if (hasSkills && i < topSkills.length) {
-        left = padLeft(renderBar(topSkills[i].name, topSkills[i].calls, maxSkill, 4, 28), COL_LEFT);
+        left = pad(renderBar(topSkills[i].name, topSkills[i].calls, maxSkill, 4, 28), COL_LEFT);
       } else if (!hasSkills && i < topSubagents.length) {
         left = `  ${renderBar(topSubagents[i].name, topSubagents[i].calls, maxAgent, 4, 28)}`;
       }
@@ -427,27 +429,18 @@ function renderBar(name: string, value: number, max: number, barWidth: number, n
   return `  ${bar} ${label} ${c.dim(count)}`;
 }
 
-function padLeft(text: string, width: number): string {
-  const visible = stripAnsi(text).length;
-  return text + " ".repeat(Math.max(0, width - visible));
-}
+const MCP_FRIENDLY_NAMES: [RegExp, string][] = [
+  [/linear/i, "Linear"],
+  [/context7/i, "Context7"],
+  [/notion/i, "Notion"],
+  [/revenuecat/i, "RevenueCat"],
+  [/chrome/i, "Chrome"],
+  [/astro/i, "Astro"],
+];
 
 function extractMcpService(toolName: string): string {
-  // mcp__claude_ai_Linear__save_issue → Linear
-  // mcp__linear-server__create_issue → linear-server
-  // mcp__plugin_context7_context7__query-docs → Context7
-  // mcp__revenuecat__foo → RevenueCat
-  const parts = toolName.replace("mcp__", "").split("__");
-  const raw = parts[0] || toolName;
-
-  // Friendly names
-  if (raw.includes("Linear") || raw === "linear-server") return "Linear";
-  if (raw.includes("context7")) return "Context7";
-  if (raw.includes("notion") || raw.includes("Notion")) return "Notion";
-  if (raw.includes("revenuecat")) return "RevenueCat";
-  if (raw.includes("chrome") || raw.includes("Chrome")) return "Chrome";
-  if (raw.includes("astro")) return "Astro";
-  return raw;
+  const raw = toolName.replace("mcp__", "").split("__")[0] || toolName;
+  return MCP_FRIENDLY_NAMES.find(([re]) => re.test(raw))?.[1] || raw;
 }
 
 function cleanDirName(dirName: string): string {
@@ -565,16 +558,6 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
-}
-
-function formatNum(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(1)}M`;
-}
-
-function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 function miniBar(value: number, max: number, width: number): string {

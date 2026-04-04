@@ -47,15 +47,3 @@ export function computeBadges(
 
   return badges;
 }
-
-export function badgeSeverity(
-  badge: HealthBadge
-): "info" | "warn" | "error" {
-  switch (badge) {
-    case "SHARED": return "info";
-    case "STALE": return "warn";
-    case "HEAVY": return "warn";
-    case "OVERSIZED": return "error";
-    case "CONFLICT": return "error";
-  }
-}

@@ -3,13 +3,12 @@ import { resolve } from "path";
 import type { ParsedArgs, AgentInfo, AgentPathInfo, ListAgentsResult } from "../types";
 import {
   getAllAgentConfigs,
-  isAgentInstalled,
   getBinaryPath,
   resolveAgentPaths,
   findProjectRoot,
 } from "../core/agents";
 import { scanAll } from "../core/scanner";
-import { printJson, heading, table, c } from "../utils/output";
+import { printJson, table, shortenPath, c } from "../utils/output";
 
 export async function run(args: ParsedArgs): Promise<void> {
   const json = args.flags.json === true;
@@ -19,10 +18,8 @@ export async function run(args: ParsedArgs): Promise<void> {
   const agents: AgentInfo[] = [];
 
   for (const config of configs) {
-    const [installed, binaryPath] = await Promise.all([
-      isAgentInstalled(config.name),
-      getBinaryPath(config.name),
-    ]);
+    const binaryPath = await getBinaryPath(config.name);
+    const installed = binaryPath !== null;
 
     // Resolve paths and check existence
     const resolved = resolveAgentPaths(config, projectRoot);
@@ -65,7 +62,7 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   // Human output
-  console.log(heading("\nAGS Agents\n"));
+  console.log(c.bold("\nAGS Agents\n"));
 
   const rows = agents.map((a) => {
     const status = a.installed ? c.green("✓") : c.red("✗");
@@ -84,16 +81,4 @@ export async function run(args: ParsedArgs): Promise<void> {
 
   console.log(table(["AGENT", "INSTALLED", "SKILLS", "ACTIVE PATHS"], rows));
   console.log();
-}
-
-function shortenPath(filePath: string): string {
-  const home = process.env.HOME || "";
-  if (home && filePath.startsWith(home)) {
-    return "~" + filePath.slice(home.length);
-  }
-  const cwd = process.cwd();
-  if (filePath.startsWith(cwd + "/")) {
-    return filePath.slice(cwd.length + 1);
-  }
-  return filePath;
 }

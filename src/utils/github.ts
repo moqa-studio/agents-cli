@@ -16,44 +16,36 @@ const RAW_RE =
   /^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
 
 export function parseGitHubUrl(url: string): GitHubFileInfo | null {
-  let match = url.match(BLOB_RE);
-  if (match) {
-    const [, owner, repo, branch, path] = match;
-    const fileName = path.split("/").pop() || "SKILL.md";
-    return {
-      owner,
-      repo,
-      branch,
-      path,
-      rawUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`,
-      fileName,
-    };
-  }
+  const isBlob = url.match(BLOB_RE);
+  const match = isBlob || url.match(RAW_RE);
+  if (!match) return null;
 
-  match = url.match(RAW_RE);
-  if (match) {
-    const [, owner, repo, branch, path] = match;
-    const fileName = path.split("/").pop() || "SKILL.md";
-    return {
-      owner,
-      repo,
-      branch,
-      path,
-      rawUrl: url,
-      fileName,
-    };
-  }
+  const [, owner, repo, branch, path] = match;
+  const fileName = path.split("/").pop() || "SKILL.md";
+  const rawUrl = isBlob
+    ? `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`
+    : url;
 
-  return null;
+  return { owner, repo, branch, path, rawUrl, fileName };
 }
 
+const MAX_FETCH_SIZE = 1_024 * 1_024; // 1MB
+const FETCH_TIMEOUT_MS = 10_000;
+
 export async function fetchRawContent(info: GitHubFileInfo): Promise<string> {
-  const response = await fetch(info.rawUrl);
+  const response = await fetch(info.rawUrl, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
 
   if (!response.ok) {
     throw new Error(
       `Failed to fetch ${info.rawUrl}: ${response.status} ${response.statusText}`
     );
+  }
+
+  const contentLength = Number(response.headers.get("content-length"));
+  if (contentLength > MAX_FETCH_SIZE) {
+    throw new Error(`File too large (${contentLength} bytes, max ${MAX_FETCH_SIZE})`);
   }
 
   return response.text();

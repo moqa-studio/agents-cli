@@ -4,7 +4,7 @@ import type { ParsedArgs, AgentName, DiscoveredSkill } from "../types";
 import { scanAll } from "../core/scanner";
 import { isValidAgentName } from "../core/agents";
 import { formatTokens } from "../core/tokens";
-import { printJson, printError, heading, formatAgent, c } from "../utils/output";
+import { printJson, printError, formatAgent, c } from "../utils/output";
 
 interface RmResult {
   removed: { name: string; agent: AgentName; type: string; path: string; tokens: number }[];
@@ -41,7 +41,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     matches = allItems.filter((s) =>
       s.filePath === absTarget ||
       s.filePath === target ||
-      s.filePath.endsWith(target)
+      s.filePath.endsWith("/" + target)
     );
   } else {
     // Match by name
@@ -93,7 +93,7 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   // Human output
-  console.log(heading("\nAGS Remove\n"));
+  console.log(c.bold("\nAGS Remove\n"));
 
   for (const r of result.removed) {
     console.log(

@@ -83,10 +83,6 @@ export function getAllAgentConfigs(): AgentConfig[] {
   return AGENTS;
 }
 
-export function getAgentNames(): AgentName[] {
-  return AGENTS.map((a) => a.name);
-}
-
 export interface ResolvedPath {
   scope: SkillScope;
   absolutePattern: string;
@@ -98,14 +94,8 @@ export function resolveAgentPaths(
   config: AgentConfig,
   projectRoot: string
 ): ResolvedPath[] {
-  const home = process.env.HOME || process.env.USERPROFILE || "~";
   return config.paths.map((p) => {
-    let pattern = p.pattern;
-    if (pattern.startsWith("~/")) {
-      pattern = resolve(home, pattern.slice(2));
-    } else if (!pattern.startsWith("/")) {
-      pattern = resolve(projectRoot, pattern);
-    }
+    const pattern = expandPattern(p.pattern, projectRoot);
     return {
       scope: p.scope,
       absolutePattern: pattern,
@@ -116,20 +106,7 @@ export function resolveAgentPaths(
 }
 
 export async function isAgentInstalled(name: AgentName): Promise<boolean> {
-  const config = getAgentConfig(name);
-  for (const bin of config.binaryNames) {
-    try {
-      const proc = Bun.spawn(["which", bin], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const exitCode = await proc.exited;
-      if (exitCode === 0) return true;
-    } catch {
-      // binary not found
-    }
-  }
-  return false;
+  return (await getBinaryPath(name)) !== null;
 }
 
 export async function getBinaryPath(name: AgentName): Promise<string | null> {
@@ -150,6 +127,17 @@ export async function getBinaryPath(name: AgentName): Promise<string | null> {
     }
   }
   return null;
+}
+
+export function expandPattern(pattern: string, projectRoot: string): string {
+  const home = process.env.HOME || process.env.USERPROFILE || "~";
+  if (pattern.startsWith("~/")) {
+    return resolve(home, pattern.slice(2));
+  }
+  if (!pattern.startsWith("/")) {
+    return resolve(projectRoot, pattern);
+  }
+  return pattern;
 }
 
 export function findProjectRoot(startDir?: string): string {

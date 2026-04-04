@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { resolve, dirname } from "path";
+import { dirname } from "path";
 import type { ParsedArgs, AgentName, GrabResult } from "../types";
-import { getAgentConfig, findProjectRoot, isValidAgentName } from "../core/agents";
+import { getAgentConfig, findProjectRoot, isValidAgentName, expandPattern } from "../core/agents";
 import { parseSkillFile, nameFromFilePath } from "../core/parser";
 import { estimateTokens, formatTokens } from "../core/tokens";
 import { parseGitHubUrl, fetchRawContent } from "../utils/github";
-import { printJson, printError, heading, c } from "../utils/output";
+import { printJson, printError, c } from "../utils/output";
 
 export async function run(args: ParsedArgs): Promise<void> {
   const json = args.flags.json === true;
@@ -38,9 +38,10 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   const parsed = parseSkillFile(content);
-  const name = parsed.frontmatter.name
+  const rawName = parsed.frontmatter.name
     ? String(parsed.frontmatter.name)
     : nameFromFilePath(info.path);
+  const name = rawName.replace(/[\/\\]/g, "-").replace(/\.\./g, "");
 
   const tokens = estimateTokens(content);
 
@@ -55,14 +56,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     return printError(`No skill path configured for ${targetAgent}`, "NO_PATH", json);
   }
 
-  const home = process.env.HOME || "";
-  let destPattern = targetPath.pattern;
-  if (destPattern.startsWith("~/")) {
-    destPattern = resolve(home, destPattern.slice(2));
-  } else if (!destPattern.startsWith("/")) {
-    destPattern = resolve(projectRoot, destPattern);
-  }
-
+  const destPattern = expandPattern(targetPath.pattern, projectRoot);
   const destination = destPattern.replace("*/SKILL.md", `${name}/SKILL.md`);
 
   if (existsSync(destination)) {
@@ -89,7 +83,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     printJson({ ok: true, data: result });
   }
 
-  console.log(heading("\nAGS Grab\n"));
+  console.log(c.bold("\nAGS Grab\n"));
   console.log(`  ${c.bold("Name:")}    ${name}`);
   console.log(`  ${c.bold("Agent:")}   ${targetAgent}`);
   console.log(`  ${c.bold("Tokens:")}  ${formatTokens(tokens)}`);
