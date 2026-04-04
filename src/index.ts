@@ -3,6 +3,20 @@
 import type { ParsedArgs } from "./types";
 import { printError, c } from "./utils/output";
 
+// Short flag aliases: -j → --json, -a → --agent, -t → --type, -s → --scope, -p → --period
+const SHORT_FLAGS: Record<string, string> = {
+  j: "json",
+  a: "agent",
+  t: "type",
+  s: "scope",
+  p: "period",
+  v: "version",
+  h: "help",
+};
+
+// Flags that never take a value (always boolean)
+const BOOLEAN_FLAGS = new Set(["json", "help", "version", "dry-run"]);
+
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   const command = args[0] || "help";
@@ -12,16 +26,53 @@ function parseArgs(argv: string[]): ParsedArgs {
   let i = 1;
   while (i < args.length) {
     const arg = args[i];
+
     if (arg.startsWith("--")) {
-      const key = arg.slice(2);
-      const next = args[i + 1];
-      if (next && !next.startsWith("--")) {
-        flags[key] = next;
-        i += 2;
-      } else {
-        flags[key] = true;
+      // Handle --key=value syntax
+      const eqIdx = arg.indexOf("=");
+      if (eqIdx > 2) {
+        const key = arg.slice(2, eqIdx);
+        flags[key] = arg.slice(eqIdx + 1);
         i++;
+      } else {
+        const key = arg.slice(2);
+        if (BOOLEAN_FLAGS.has(key)) {
+          flags[key] = true;
+          i++;
+        } else {
+          const next = args[i + 1];
+          if (next && !next.startsWith("-")) {
+            flags[key] = next;
+            i += 2;
+          } else {
+            flags[key] = true;
+            i++;
+          }
+        }
       }
+    } else if (arg.startsWith("-") && arg.length > 1 && !arg.startsWith("--")) {
+      // Short flags: -j, -a claude, -js (combined booleans)
+      const chars = arg.slice(1);
+      for (let ci = 0; ci < chars.length; ci++) {
+        const ch = chars[ci];
+        const longName = SHORT_FLAGS[ch] || ch;
+        if (BOOLEAN_FLAGS.has(longName)) {
+          flags[longName] = true;
+        } else if (ci === chars.length - 1) {
+          // Last char in group: next arg is the value
+          const next = args[i + 1];
+          if (next && !next.startsWith("-")) {
+            flags[longName] = next;
+            i++;
+          } else {
+            flags[longName] = true;
+          }
+        } else {
+          // Non-boolean in the middle of a group — treat as boolean
+          flags[longName] = true;
+        }
+      }
+      i++;
     } else {
       positional.push(arg);
       i++;
@@ -83,6 +134,7 @@ ${c.bold("Usage:")}  ags grab <github-url> [options]
 
 ${c.bold("Options:")}
   --to X        Target agent: claude, cursor, codex (default: claude)
+  --dry-run     Preview without writing files
   --json        Output as JSON
 
 ${c.bold("Supported URLs:")}
@@ -101,6 +153,7 @@ ${c.bold("Usage:")}  ags rm <name-or-path> [options]
 
 ${c.bold("Options:")}
   --agent X     Only remove from this agent (if name matches multiple)
+  --dry-run     Preview without deleting files
   --json        Output as JSON
 
 ${c.bold("Examples:")}

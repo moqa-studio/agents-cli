@@ -25,15 +25,67 @@ export function parseSkillFile(content: string): ParsedSkillFile {
   return { frontmatter, body, raw: content };
 }
 
+/**
+ * Minimal YAML parser for skill frontmatter.
+ *
+ * Supports: flat key:value pairs, lists (- items), inline arrays [a, b],
+ * quoted strings, booleans, numbers, and multi-line strings (| and >).
+ *
+ * Limitations:
+ * - No nested objects (sub-keys are collected as flat list items)
+ * - No anchors/aliases, flow mappings, or tagged types
+ * - Multi-line strings use simple indentation detection
+ *
+ * For complex frontmatter, consider using a full YAML parser.
+ */
 function parseYaml(yaml: string): Frontmatter {
   const result: Record<string, unknown> = {};
   const lines = yaml.split("\n");
   let currentKey: string | null = null;
   let currentList: string[] | null = null;
+  let multiLineMode: "|" | ">" | null = null;
+  let multiLineLines: string[] = [];
+  let multiLineIndent = -1;
+
+  function flushMultiLine() {
+    if (currentKey && multiLineMode) {
+      const joined = multiLineMode === "|"
+        ? multiLineLines.join("\n")
+        : multiLineLines.join(" ");
+      result[currentKey] = joined.trim();
+    }
+    multiLineMode = null;
+    multiLineLines = [];
+    multiLineIndent = -1;
+  }
+
+  function flushList() {
+    if (currentKey && currentList) {
+      result[currentKey] = currentList;
+    }
+    currentKey = null;
+    currentList = null;
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
+
+    // Accumulate multi-line string content
+    if (multiLineMode && currentKey) {
+      if (trimmed === "") {
+        multiLineLines.push("");
+        continue;
+      }
+      const indent = line.length - line.trimStart().length;
+      if (multiLineIndent < 0) multiLineIndent = indent;
+      if (indent >= multiLineIndent) {
+        multiLineLines.push(line.slice(multiLineIndent));
+        continue;
+      }
+      // De-indented line → end of multi-line block, re-process this line
+      flushMultiLine();
+    }
 
     if (!trimmed || trimmed.startsWith("#")) continue;
 
@@ -44,11 +96,7 @@ function parseYaml(yaml: string): Frontmatter {
     }
 
     // Flush any pending list
-    if (currentKey && currentList) {
-      result[currentKey] = currentList;
-      currentKey = null;
-      currentList = null;
-    }
+    flushList();
 
     // Key: value pair
     const colonIdx = trimmed.indexOf(": ");
@@ -58,8 +106,16 @@ function parseYaml(yaml: string): Frontmatter {
       const key = trimmed.slice(0, colonIdx).trim();
       const rawValue = trimmed.slice(colonIdx + 2).trim();
 
-      if (rawValue === "" || rawValue === "|" || rawValue === ">") {
-        // Could be start of a list or multi-line
+      if (rawValue === "|" || rawValue === ">") {
+        currentKey = key;
+        multiLineMode = rawValue as "|" | ">";
+        multiLineLines = [];
+        multiLineIndent = -1;
+        continue;
+      }
+
+      if (rawValue === "") {
+        // Could be start of a list
         currentKey = key;
         currentList = [];
         continue;
@@ -74,10 +130,9 @@ function parseYaml(yaml: string): Frontmatter {
     }
   }
 
-  // Flush final list
-  if (currentKey && currentList) {
-    result[currentKey] = currentList;
-  }
+  // Flush final pending state
+  if (multiLineMode) flushMultiLine();
+  flushList();
 
   return result as Frontmatter;
 }
