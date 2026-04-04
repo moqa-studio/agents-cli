@@ -114,41 +114,6 @@ function stripQuotes(s: string): string {
   return s;
 }
 
-export function serializeFrontmatter(fm: Frontmatter): string {
-  const lines: string[] = ["---"];
-
-  for (const [key, value] of Object.entries(fm)) {
-    if (value === undefined || value === null) continue;
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) continue;
-      // Short arrays inline, long arrays as list
-      if (value.length <= 3 && value.every((v) => typeof v === "string" && v.length < 30)) {
-        lines.push(`${key}: [${value.join(", ")}]`);
-      } else {
-        lines.push(`${key}:`);
-        for (const item of value) {
-          lines.push(`  - ${item}`);
-        }
-      }
-    } else if (typeof value === "object") {
-      lines.push(`${key}:`);
-      for (const [k, v] of Object.entries(value)) {
-        if (v !== undefined && v !== null) {
-          lines.push(`  ${k}: ${v}`);
-        }
-      }
-    } else if (typeof value === "string" && value.includes(": ")) {
-      lines.push(`${key}: "${value}"`);
-    } else {
-      lines.push(`${key}: ${value}`);
-    }
-  }
-
-  lines.push("---");
-  return lines.join("\n");
-}
-
 export function extractDescription(parsed: ParsedSkillFile): string {
   if (parsed.frontmatter.description) {
     const desc = String(parsed.frontmatter.description);

@@ -25,15 +25,3 @@ export async function getLastModified(filePath: string): Promise<number> {
     return Math.floor(Date.now() / 1000);
   }
 }
-
-export async function isGitRepo(dir: string): Promise<boolean> {
-  try {
-    const proc = Bun.spawn(
-      ["git", "rev-parse", "--git-dir"],
-      { stdout: "pipe", stderr: "pipe", cwd: dir }
-    );
-    return (await proc.exited) === 0;
-  } catch {
-    return false;
-  }
-}

@@ -1,4 +1,4 @@
-import type { AgentName, CliOutput, HealthBadge, SkillType } from "../types";
+import type { AgentName, CliOutput, HealthBadge, SkillScope, SkillType } from "../types";
 
 // ── ANSI colors ─────────────────────────────────────────────────
 
@@ -38,12 +38,6 @@ export function printJson<T>(output: CliOutput<T>): never {
   process.exit(output.ok ? 0 : 1);
 }
 
-export function printSuccess<T>(data: T, json: boolean): void {
-  if (json) {
-    printJson({ ok: true, data });
-  }
-}
-
 export function printError(
   message: string,
   code: string,
@@ -78,14 +72,45 @@ export function table(headers: string[], rows: string[][]): string {
   return `${c.bold(headerLine)}\n${c.dim(divider)}\n${body}`;
 }
 
-function pad(text: string, width: number): string {
+export function pad(text: string, width: number): string {
   const visible = stripAnsi(text).length;
   const needed = Math.max(0, width - visible);
   return text + " ".repeat(needed);
 }
 
-function stripAnsi(s: string): string {
+export function stripAnsi(s: string): string {
   return s.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+export function shortenPath(filePath: string): string {
+  const home = process.env.HOME || "";
+  if (home && filePath.startsWith(home)) {
+    return "~" + filePath.slice(home.length);
+  }
+  const cwd = process.cwd();
+  if (filePath.startsWith(cwd + "/")) {
+    return filePath.slice(cwd.length + 1);
+  }
+  return filePath;
+}
+
+export function parseScopeFlag(
+  raw: string | boolean | undefined,
+  json: boolean
+): SkillScope[] | undefined {
+  if (!raw) return undefined;
+  const s = String(raw);
+  const validScopes: Record<string, SkillScope[] | undefined> = {
+    local: ["project"],
+    global: ["user"],
+    project: ["project"],
+    user: ["user"],
+    all: undefined,
+  };
+  if (!(s in validScopes)) {
+    return printError(`Unknown scope: ${s}. Use: local, global, all`, "INVALID_SCOPE", json);
+  }
+  return validScopes[s];
 }
 
 // ── Badge formatting ────────────────────────────────────────────
@@ -144,12 +169,3 @@ export function formatType(type: SkillType): string {
   }
 }
 
-// ── Headings ────────────────────────────────────────────────────
-
-export function heading(text: string): string {
-  return c.bold(text);
-}
-
-export function subheading(text: string): string {
-  return c.dim(text);
-}

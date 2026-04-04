@@ -16,35 +16,17 @@ const RAW_RE =
   /^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
 
 export function parseGitHubUrl(url: string): GitHubFileInfo | null {
-  let match = url.match(BLOB_RE);
-  if (match) {
-    const [, owner, repo, branch, path] = match;
-    const fileName = path.split("/").pop() || "SKILL.md";
-    return {
-      owner,
-      repo,
-      branch,
-      path,
-      rawUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`,
-      fileName,
-    };
-  }
+  const isBlob = url.match(BLOB_RE);
+  const match = isBlob || url.match(RAW_RE);
+  if (!match) return null;
 
-  match = url.match(RAW_RE);
-  if (match) {
-    const [, owner, repo, branch, path] = match;
-    const fileName = path.split("/").pop() || "SKILL.md";
-    return {
-      owner,
-      repo,
-      branch,
-      path,
-      rawUrl: url,
-      fileName,
-    };
-  }
+  const [, owner, repo, branch, path] = match;
+  const fileName = path.split("/").pop() || "SKILL.md";
+  const rawUrl = isBlob
+    ? `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`
+    : url;
 
-  return null;
+  return { owner, repo, branch, path, rawUrl, fileName };
 }
 
 export async function fetchRawContent(info: GitHubFileInfo): Promise<string> {
