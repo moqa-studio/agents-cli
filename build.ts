@@ -14,14 +14,6 @@ async function build() {
     mkdirSync(outDir, { recursive: true });
   }
 
-  // Generate shell completions
-  console.log("Generating shell completions...");
-  mkdirSync("./completions", { recursive: true });
-  await $`bun run src/index.ts completions zsh > completions/_ags`.quiet();
-  await $`bun run src/index.ts completions bash > completions/ags.bash`.quiet();
-  console.log("  ✓ completions/_ags (zsh)");
-  console.log("  ✓ completions/ags.bash (bash)\n");
-
   // Build binaries
   console.log("Building AGS binaries...\n");
 

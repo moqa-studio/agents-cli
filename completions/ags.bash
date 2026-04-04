@@ -3,7 +3,7 @@ _ags() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  commands="scan skill-cost grab export rm stats list-agents init completions"
+  commands="scan skill-cost grab rm stats list-agents"
 
   if [[ ${COMP_CWORD} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "${commands}" -- "${cur}") )
@@ -35,11 +35,9 @@ _ags() {
   case "${cmd}" in
     scan)       opts="--agent --type --scope --json --help" ;;
     skill-cost) opts="--scope --json --help" ;;
-    grab)       opts="--to --json --help" ;;
-    export)     opts="--to --all --json --help" ;;
-    rm|remove)  opts="--agent --json --help" ;;
+    grab)       opts="--to --dry-run --json --help" ;;
+    rm|remove)  opts="--agent --dry-run --json --help" ;;
     stats)      opts="--period --json --help" ;;
-    init)       opts="--agent --name --type --json --help" ;;
   esac
 
   COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
