@@ -198,6 +198,69 @@ ${c.bold("Shows:")}
   Which agents (Claude Code, Cursor, Codex) are installed,
   how many skills each has, and which directories are active.
 `,
+
+  "list-skills": `
+${c.bold("ags list-skills")} — List all installed skills
+
+${c.bold("Usage:")}  ags list-skills [options]
+
+${c.bold("Options:")}
+  --agent X     Filter by agent: claude, cursor, codex
+  --scope X     Filter by scope: local, global, all (default: all)
+  --json        Output as JSON
+
+${c.bold("Examples:")}
+  ags list-skills                     All skills
+  ags list-skills --agent claude      Claude Code only
+  ags list-skills --scope local       Project-level only
+`,
+
+  context: `
+${c.bold("ags context")} — What's loaded into your agent's context
+
+${c.bold("Usage:")}  ags context [options]
+
+${c.bold("Options:")}
+  --agent X     Filter by agent: claude, cursor, codex
+  --json        Output as JSON
+
+${c.bold("Shows:")}
+  Full context map: config files, skills, commands, agents,
+  memory files, MCP server configs. Token costs and usage
+  bars per agent.
+
+${c.bold("Examples:")}
+  ags context                         Full map for all agents
+  ags context --agent claude          Claude Code only
+  ags context --json                  Structured output for agents
+`,
+
+  lint: `
+${c.bold("ags lint")} — Validate skill files
+
+${c.bold("Usage:")}  ags lint [options]
+
+${c.bold("Options:")}
+  --agent X     Filter by agent: claude, cursor, codex
+  --scope X     Filter by scope: local, global, all (default: all)
+  --json        Output as JSON
+
+${c.bold("Rules checked:")}
+  missing-frontmatter    No YAML frontmatter block
+  missing-description    No description field
+  missing-name           No name field (uses filename fallback)
+  short-description      Description under 10 chars
+  heavy                  Over 5,000 characters
+  oversized              Over 500 lines
+  name-conflict          Same name at different paths
+  unsupported-key        Frontmatter key not recognized by agent
+  empty-body             No content after frontmatter
+
+${c.bold("Examples:")}
+  ags lint                            Lint everything
+  ags lint --agent claude             Claude skills only
+  ags lint --scope local --json       Project-level, JSON output
+`,
 };
 
 function printUsage(): void {
@@ -208,6 +271,9 @@ ${c.bold("Usage:")}  ags <command> [options]
 
 ${c.bold("Commands:")}
   scan          Discover all skills, commands, agents, and rules
+  list-skills   List all installed skills
+  context       What's loaded into your agent's context
+  lint          Validate skill files for quality issues
   skill-cost    How much context your skills consume
   grab <url>    Install skill from GitHub URL
   rm <name>     Remove a skill, command, agent, or rule
@@ -258,6 +324,18 @@ async function main(): Promise<void> {
     }
     case "list-agents": {
       const { run } = await import("./commands/list-agents");
+      return run(args);
+    }
+    case "list-skills": {
+      const { run } = await import("./commands/list-skills");
+      return run(args);
+    }
+    case "context": {
+      const { run } = await import("./commands/context");
+      return run(args);
+    }
+    case "lint": {
+      const { run } = await import("./commands/lint");
       return run(args);
     }
     case "help":
