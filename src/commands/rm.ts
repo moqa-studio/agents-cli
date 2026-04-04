@@ -61,6 +61,8 @@ export async function run(args: ParsedArgs): Promise<void> {
     );
   }
 
+  const dryRun = args.flags["dry-run"] === true;
+
   // Remove each match
   const result: RmResult = { removed: [], notFound: [] };
 
@@ -70,13 +72,15 @@ export async function run(args: ParsedArgs): Promise<void> {
       continue;
     }
 
-    // Delete the file
-    unlinkSync(item.filePath);
+    if (!dryRun) {
+      // Delete the file
+      unlinkSync(item.filePath);
 
-    // If it was a SKILL.md inside a skill directory, clean up the directory if empty
-    const dir = dirname(item.filePath);
-    if (item.filePath.endsWith("/SKILL.md")) {
-      tryRemoveEmptyDir(dir);
+      // If it was a SKILL.md inside a skill directory, clean up the directory if empty
+      const dir = dirname(item.filePath);
+      if (item.filePath.endsWith("/SKILL.md")) {
+        tryRemoveEmptyDir(dir);
+      }
     }
 
     result.removed.push({
@@ -89,15 +93,17 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   if (json) {
-    printJson({ ok: true, data: result });
+    return printJson({ ok: true, data: { ...result, dryRun } });
   }
 
   // Human output
-  console.log(c.bold("\nAGS Remove\n"));
+  const prefix = dryRun ? c.yellow("[dry-run] ") : "";
+  console.log(c.bold(`\n${prefix}AGS Remove\n`));
 
   for (const r of result.removed) {
+    const verb = dryRun ? c.yellow("~") : c.red("✕");
     console.log(
-      `  ${c.red("✕")} ${c.bold(r.name)} ${c.dim(`(${r.type})`)} ${formatAgent(r.agent as AgentName)}  ${c.dim("−" + formatTokens(r.tokens))}`
+      `  ${verb} ${c.bold(r.name)} ${c.dim(`(${r.type})`)} ${formatAgent(r.agent as AgentName)}  ${c.dim("−" + formatTokens(r.tokens))}`
     );
     console.log(`    ${c.dim(r.path)}`);
   }
@@ -109,9 +115,15 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   const totalTokens = result.removed.reduce((sum, r) => sum + r.tokens, 0);
-  console.log(
-    `\n  ${result.removed.length} removed, ${formatTokens(totalTokens)} tokens freed\n`
-  );
+  if (dryRun) {
+    console.log(
+      `\n  ${result.removed.length} would be removed, ${formatTokens(totalTokens)} tokens would be freed\n`
+    );
+  } else {
+    console.log(
+      `\n  ${result.removed.length} removed, ${formatTokens(totalTokens)} tokens freed\n`
+    );
+  }
 }
 
 function tryRemoveEmptyDir(dir: string): void {

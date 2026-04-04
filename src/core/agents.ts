@@ -140,17 +140,28 @@ export function expandPattern(pattern: string, projectRoot: string): string {
   return pattern;
 }
 
+const projectRootCache = new Map<string, string>();
+
 export function findProjectRoot(startDir?: string): string {
-  let dir = resolve(startDir || process.cwd());
+  const start = resolve(startDir || process.cwd());
+  const cached = projectRootCache.get(start);
+  if (cached) return cached;
+
+  let dir = start;
   const root = resolve("/");
   while (dir !== root) {
     const gitDir = resolve(dir, ".git");
-    if (existsSync(gitDir)) return dir;
+    if (existsSync(gitDir)) {
+      projectRootCache.set(start, dir);
+      return dir;
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return resolve(startDir || process.cwd());
+  const fallback = resolve(startDir || process.cwd());
+  projectRootCache.set(start, fallback);
+  return fallback;
 }
 
 export function getContextLimit(name: AgentName): number {

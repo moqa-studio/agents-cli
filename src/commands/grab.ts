@@ -67,9 +67,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     );
   }
 
-  const destDir = dirname(destination);
-  mkdirSync(destDir, { recursive: true });
-  writeFileSync(destination, content, "utf-8");
+  const dryRun = args.flags["dry-run"] === true;
 
   const result: GrabResult = {
     name,
@@ -79,17 +77,28 @@ export async function run(args: ParsedArgs): Promise<void> {
     agent: targetAgent,
   };
 
-  if (json) {
-    printJson({ ok: true, data: result });
+  if (!dryRun) {
+    const destDir = dirname(destination);
+    mkdirSync(destDir, { recursive: true });
+    writeFileSync(destination, content, "utf-8");
   }
 
-  console.log(c.bold("\nAGS Grab\n"));
+  if (json) {
+    return printJson({ ok: true, data: { ...result, dryRun } });
+  }
+
+  const prefix = dryRun ? c.yellow("[dry-run] ") : "";
+  console.log(c.bold(`\n${prefix}AGS Grab\n`));
   console.log(`  ${c.bold("Name:")}    ${name}`);
   console.log(`  ${c.bold("Agent:")}   ${targetAgent}`);
   console.log(`  ${c.bold("Tokens:")}  ${formatTokens(tokens)}`);
   console.log(`  ${c.bold("Source:")}  ${c.dim(url)}`);
   console.log(`  ${c.bold("Saved:")}   ${destination}`);
   console.log();
-  console.log(c.green(`  ✓ Skill "${name}" installed for ${targetAgent}`));
+  if (dryRun) {
+    console.log(c.yellow(`  ⚠ Dry run — no files were written`));
+  } else {
+    console.log(c.green(`  ✓ Skill "${name}" installed for ${targetAgent}`));
+  }
   console.log();
 }

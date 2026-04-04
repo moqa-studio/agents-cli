@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "fs";
+import { existsSync, readdirSync, statSync } from "fs";
 import { resolve } from "path";
 import type { ParsedArgs, AgentName } from "../types";
 import { formatTokens } from "../core/tokens";
@@ -182,76 +182,90 @@ export async function run(args: ParsedArgs): Promise<void> {
 
   for (const jsonlPath of sessionJsonls) {
     try {
-      const content = readFileSync(jsonlPath, "utf-8");
-      for (const line of content.split("\n")) {
-        if (!line) continue;
+      // Stream line-by-line to avoid loading entire files into memory
+      const file = Bun.file(jsonlPath);
+      const stream = file.stream();
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      let remainder = "";
 
-        try {
-          const d = JSON.parse(line);
-          const type = d.type;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = remainder + decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+        remainder = lines.pop() || "";
 
-          if (type === "user") {
-            totalUserMessages++;
-            // Extract hours from timestamps
-            const ts = d.message?.timestamp || d.timestamp;
-            if (ts) {
-              const h = new Date(ts).getHours();
-              if (!isNaN(h)) hourCounts[h] = (hourCounts[h] || 0) + 1;
-            }
-          } else if (type === "assistant") {
-            totalAssistantMessages++;
-            const msg = d.message || {};
-
-            // Model
-            const model = msg.model;
-            if (model && model !== "<synthetic>") {
-              modelCounts[model] = (modelCounts[model] || 0) + 1;
-            }
-
-            // Tokens
-            const usage = msg.usage;
-            if (usage) {
-              totalInputTokens += usage.input_tokens || 0;
-              totalOutputTokens += usage.output_tokens || 0;
-            }
-
-            // Tool use blocks
-            const blocks = msg.content;
-            if (Array.isArray(blocks)) {
-              for (const block of blocks) {
-                if (!block || block.type !== "tool_use") continue;
-                const name = block.name || "";
-                const input = block.input || {};
-
-                if (name === "Skill") {
-                  let skill = input.skill || input.name || "unknown";
-                  if (skill.includes(":")) skill = skill.split(":").pop()!;
-                  skillCounts[skill] = (skillCounts[skill] || 0) + 1;
-                } else if (name === "Agent") {
-                  const agent = input.subagent_type || "general-purpose";
-                  subagentCounts[agent] = (subagentCounts[agent] || 0) + 1;
-                } else if (name === "WebSearch") {
-                  webSearches++;
-                } else if (name === "WebFetch") {
-                  webFetches++;
-                } else if (name.startsWith("mcp__")) {
-                  // Group by service: mcp__claude_ai_Linear__foo → Linear
-                  const service = extractMcpService(name);
-                  mcpServices[service] = (mcpServices[service] || 0) + 1;
-                }
-              }
-            }
-          } else if (type === "pr-link") {
-            totalPRs++;
-          } else if (type === "system" && d.subtype === "api_error") {
-            apiErrors++;
-          }
-        } catch {
-          // skip bad line
+        for (const line of lines) {
+          if (!line) continue;
+          processJsonlLine(line);
         }
       }
+      // Process any trailing content
+      if (remainder) processJsonlLine(remainder);
     } catch {
       // skip bad file
+    }
+  }
+
+  function processJsonlLine(line: string): void {
+    try {
+      const d = JSON.parse(line);
+      const type = d.type;
+
+      if (type === "user") {
+        totalUserMessages++;
+        const ts = d.message?.timestamp || d.timestamp;
+        if (ts) {
+          const h = new Date(ts).getHours();
+          if (!isNaN(h)) hourCounts[h] = (hourCounts[h] || 0) + 1;
+        }
+      } else if (type === "assistant") {
+        totalAssistantMessages++;
+        const msg = d.message || {};
+
+        const model = msg.model;
+        if (model && model !== "<synthetic>") {
+          modelCounts[model] = (modelCounts[model] || 0) + 1;
+        }
+
+        const usage = msg.usage;
+        if (usage) {
+          totalInputTokens += usage.input_tokens || 0;
+          totalOutputTokens += usage.output_tokens || 0;
+        }
+
+        const blocks = msg.content;
+        if (Array.isArray(blocks)) {
+          for (const block of blocks) {
+            if (!block || block.type !== "tool_use") continue;
+            const name = block.name || "";
+            const input = block.input || {};
+
+            if (name === "Skill") {
+              let skill = input.skill || input.name || "unknown";
+              if (skill.includes(":")) skill = skill.split(":").pop()!;
+              skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+            } else if (name === "Agent") {
+              const agent = input.subagent_type || "general-purpose";
+              subagentCounts[agent] = (subagentCounts[agent] || 0) + 1;
+            } else if (name === "WebSearch") {
+              webSearches++;
+            } else if (name === "WebFetch") {
+              webFetches++;
+            } else if (name.startsWith("mcp__")) {
+              const service = extractMcpService(name);
+              mcpServices[service] = (mcpServices[service] || 0) + 1;
+            }
+          }
+        }
+      } else if (type === "pr-link") {
+        totalPRs++;
+      } else if (type === "system" && d.subtype === "api_error") {
+        apiErrors++;
+      }
+    } catch {
+      // skip bad line
     }
   }
 
@@ -445,27 +459,34 @@ function extractMcpService(toolName: string): string {
 
 function cleanDirName(dirName: string): string {
   // Dir names encode paths: -Users-robin-Projects-foo → /Users/robin/Projects/foo
-  // We strip the HOME prefix segments to get a short display name.
+  // Strategy: reconstruct the path, strip the HOME prefix, take the last meaningful segments.
   const home = process.env.HOME || "";
-  const homeSegments = new Set(home.split("/").filter(Boolean));
+  const homeParts = home.split("/").filter(Boolean);
 
-  // Common path segments that aren't meaningful project names
-  const skipWords = new Set([
-    "", ...homeSegments,
+  // Only skip segments that match the actual HOME path prefix (in order),
+  // plus generic container directories — but never project-name-like words.
+  const containerDirs = new Set([
     "Documents", "Projects", "Code", "Workspace", "Developer",
-    "repos", "src", "dev", "work", "git",
-    // Common macOS/Linux parent dirs in project paths
-    "Mac", "React", "Native", "Desktop", "Downloads",
+    "repos", "src", "dev", "work", "git", "Desktop", "Downloads",
   ]);
 
   const segments = dirName.split("-");
+
+  // Phase 1: strip HOME prefix segments in order
   let startIdx = 0;
-  for (let i = 0; i < segments.length; i++) {
-    if (skipWords.has(segments[i])) {
+  let homeIdx = 0;
+  for (let i = 0; i < segments.length && homeIdx < homeParts.length; i++) {
+    if (segments[i] === "" || segments[i] === homeParts[homeIdx]) {
       startIdx = i + 1;
+      if (segments[i] === homeParts[homeIdx]) homeIdx++;
     } else {
       break;
     }
+  }
+
+  // Phase 2: skip container directories that immediately follow the home prefix
+  while (startIdx < segments.length && containerDirs.has(segments[startIdx])) {
+    startIdx++;
   }
 
   return segments.slice(startIdx).join("-") || dirName;

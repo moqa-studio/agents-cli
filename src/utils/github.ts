@@ -43,10 +43,30 @@ export async function fetchRawContent(info: GitHubFileInfo): Promise<string> {
     );
   }
 
-  const contentLength = Number(response.headers.get("content-length"));
-  if (contentLength > MAX_FETCH_SIZE) {
+  // Check content-length header if present
+  const contentLength = response.headers.get("content-length");
+  if (contentLength !== null && Number(contentLength) > MAX_FETCH_SIZE) {
     throw new Error(`File too large (${contentLength} bytes, max ${MAX_FETCH_SIZE})`);
   }
 
-  return response.text();
+  // Read body with size cap regardless of content-length header
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_FETCH_SIZE) {
+      reader.cancel();
+      throw new Error(`File too large (>${MAX_FETCH_SIZE} bytes)`);
+    }
+    chunks.push(value);
+  }
+
+  const decoder = new TextDecoder();
+  return chunks.map((c) => decoder.decode(c, { stream: true })).join("") + decoder.decode();
 }
