@@ -82,7 +82,8 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { command, positional, flags };
 }
 
-const VERSION = "0.1.0";
+// Read version from package.json so it stays in sync
+const { version: VERSION } = await import("../package.json");
 
 // ── Per-command help ────────────────────────────────────────────
 

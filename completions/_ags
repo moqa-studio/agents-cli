@@ -6,12 +6,9 @@ _ags() {
     'scan:Discover all skills, commands, agents, and rules'
     'skill-cost:How much context your skills consume'
     'grab:Install skill from GitHub URL'
-    'export:Convert skill to another agent format'
     'rm:Remove a skill, command, agent, or rule'
     'stats:Usage stats and activity dashboard'
     'list-agents:Show installed agents'
-    'init:Scaffold a new skill'
-    'completions:Generate shell completions'
   )
 
   local -a global_opts
@@ -44,33 +41,20 @@ _ags() {
     grab)
       _arguments \
         '--to[Target agent]:agent:(claude cursor codex)' \
-        '--json[Output as JSON]' \
-        '--help[Show help]'
-      ;;
-    export)
-      _arguments \
-        '--to[Target agent]:agent:(claude cursor codex)' \
-        '--all[Export all skills]' \
+        '--dry-run[Preview without writing files]' \
         '--json[Output as JSON]' \
         '--help[Show help]'
       ;;
     rm|remove)
       _arguments \
         '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--dry-run[Preview without deleting files]' \
         '--json[Output as JSON]' \
         '--help[Show help]'
       ;;
     stats)
       _arguments \
         '--period[Time range]:period:(7d 14d 30d 90d 6m 1y week month year all-time)' \
-        '--json[Output as JSON]' \
-        '--help[Show help]'
-      ;;
-    init)
-      _arguments \
-        '--agent[Target agent]:agent:(claude cursor codex)' \
-        '--name[Skill name]:name:' \
-        '--type[Skill type]:type:(skill command rule agent)' \
         '--json[Output as JSON]' \
         '--help[Show help]'
       ;;
