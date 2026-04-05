@@ -78,6 +78,7 @@ export interface ScanResult {
   skills: DiscoveredSkill[];
   summary: {
     total: number;
+    totalTokens: number;
     byAgent: Partial<Record<AgentName, number>>;
     byType: Partial<Record<SkillType, number>>;
     byScope: Partial<Record<SkillScope, number>>;
@@ -125,25 +126,6 @@ export interface GrabResult {
   destination: string;
   tokens: number;
   agent: AgentName;
-}
-
-export interface AgentPathInfo {
-  scope: SkillScope;
-  path: string;
-  exists: boolean;
-}
-
-export interface AgentInfo {
-  name: AgentName;
-  displayName: string;
-  installed: boolean;
-  binaryPath: string | null;
-  skillCount: number;
-  paths: AgentPathInfo[];
-}
-
-export interface ListAgentsResult {
-  agents: AgentInfo[];
 }
 
 // ── CLI output wrapper ──────────────────────────────────────────

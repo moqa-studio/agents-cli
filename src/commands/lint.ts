@@ -1,18 +1,11 @@
-import type {
-  ParsedArgs,
-  AgentName,
-  DiscoveredSkill,
-  HealthBadge,
-} from "../types";
+import type { ParsedArgs } from "../types";
 import { scanAll } from "../core/scanner";
-import { isValidAgentName, getAgentConfig } from "../core/agents";
+import { getAgentConfig } from "../core/agents";
 import {
-  printError,
   printJson,
-  formatAgent,
-  formatAgents,
   shortenPath,
   parseScopeFlag,
+  parseAgentFlag,
   c,
 } from "../utils/output";
 
@@ -41,16 +34,7 @@ interface LintResult {
 export async function run(args: ParsedArgs): Promise<void> {
   const json = args.flags.json === true;
 
-  let agents: AgentName[] | undefined;
-  if (args.flags.agent) {
-    const names = String(args.flags.agent).split(",");
-    for (const name of names) {
-      if (!isValidAgentName(name)) {
-        return printError(`Unknown agent: ${name}`, "INVALID_AGENT", json);
-      }
-    }
-    agents = names as AgentName[];
-  }
+  const agents = parseAgentFlag(args.flags.agent, json);
 
   const scopes = parseScopeFlag(args.flags.scope, json);
   const skills = await scanAll({ agents, scopes });

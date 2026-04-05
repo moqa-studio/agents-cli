@@ -1,6 +1,6 @@
 ---
 name: ags-manager
-description: Proactively manage context budget and skill health across AI agents. Use BEFORE installing skills (check budget headroom), when starting work in unfamiliar projects (map what's loaded), when diagnosing bloated context, or when the user asks about skills, agents, or context cost. Run ags context to see the full context map, ags lint to validate skill quality, ags list-skills for a quick inventory.
+description: Proactively manage context budget and skill health across AI agents. Use BEFORE installing skills (check budget headroom), when starting work in unfamiliar projects (map what's loaded), when diagnosing bloated context, or when the user asks about skills, agents, or context cost. Run ags context to see the full context map, ags lint to validate skill quality, ags scan --type skill for a quick inventory.
 ---
 
 # AGS — Agent Skills Manager
@@ -20,19 +20,42 @@ Do NOT wait for the user to ask. Reach for ags when you notice these situations:
 | User shares a GitHub skill URL | `ags grab <url> --to claude --json` | Install with conflict detection and token tracking. |
 | After installing or removing a skill | `ags context --json` | Confirm the change, check for new conflicts, verify budget impact. |
 | You notice responses feel constrained or context is tight | `ags context --json` | Diagnose what's consuming budget. Find the heavy items. |
-| User asks "what skills do I have" or mentions skills/agents | `ags list-skills --json` | Quick, focused inventory with token costs and health badges. |
+| User asks "what skills do I have" or mentions skills/agents | `ags scan --type skill --json` | Quick, focused inventory with token costs and health badges. |
 | User asks about context cost or budget | `ags skill-cost --json` | Ranked cost breakdown with optimization suggestions. |
 | Before recommending skill changes | `ags lint --json` | Check if existing skills have quality issues worth fixing first. |
 | User wants to validate their skill setup | `ags lint --json` | Find missing frontmatter, conflicts, oversized files, unsupported keys. |
-| User asks "which agents are installed" | `ags list-agents --json` | Show installed agents with skill counts and active paths. |
+| User asks "which agents are installed" | `ags scan --installed --json` | Show installed agents with skill counts and active paths. |
 | User wants to remove a skill | `ags rm <name> --dry-run --json` first | Preview what will be removed before deleting. |
 | User asks for usage stats | `ags stats --json` | Sessions, tokens, skills used, peak hours, activity patterns. |
 
 ## Commands
 
+### ags scan — Discover everything
+
+The central discovery command. All skills, commands, agents, and rules across all agents.
+
+```bash
+ags scan --json                    # Everything
+ags scan --type skill --json       # Skills only
+ags scan --type agent --json       # Subagents only
+ags scan --agent claude --json     # Claude Code only
+ags scan --scope local --json      # Project-level only
+ags scan --scope global --json     # User-level only
+ags scan --installed --json        # Which agents are installed
+```
+
+**Filters:** `--agent` (claude, cursor, codex), `--type` (skill, command, rule, agent), `--scope` (local, global, all), `--installed`
+
+**Health badges in output:**
+- `STALE` — not modified in 30+ days
+- `HEAVY` — over 5,000 characters
+- `OVERSIZED` — over 500 lines
+- `CONFLICT` — same name exists at different paths
+- `SHARED` — same file used by multiple agents
+
 ### ags context — What's loaded into context
 
-The most important command. Shows everything consuming context for this project: config files, skills, commands, agents, memory files, and MCP server configs.
+Shows everything consuming context for this project: config files, skills, commands, agents, memory files, and MCP server configs.
 
 ```bash
 ags context --json                    # Full context map for all agents
@@ -64,7 +87,7 @@ ags context --agent claude --json     # Claude Code only
 
 ### ags lint — Validate skill quality
 
-Checks all skill files for issues that hurt discoverability or waste context.
+Checks all skill files for issues that hurt discoverability or waste context. Uses the same `scanAll()` discovery as `scan`.
 
 ```bash
 ags lint --json                       # Lint everything
@@ -83,59 +106,11 @@ ags lint --scope local --json         # Project-level only
 - `unsupported-key` — Frontmatter key not recognized by the target agent
 - `empty-body` — Frontmatter only, no instructions
 
-**Output shape:**
-```json
-{
-  "issues": [
-    {
-      "severity": "error",
-      "rule": "missing-description",
-      "message": "No description in frontmatter...",
-      "skill": "my-skill",
-      "filePath": "/path/to/SKILL.md"
-    }
-  ],
-  "scanned": 12,
-  "errors": 2,
-  "warnings": 3,
-  "passed": 10
-}
-```
-
 Exits with code 1 if there are errors. Use this in CI or pre-commit hooks.
-
-### ags list-skills — Quick skill inventory
-
-Focused view of just skills (no commands, rules, or agents).
-
-```bash
-ags list-skills --json                    # All skills
-ags list-skills --agent claude --json     # Claude only
-ags list-skills --scope local --json      # Project-level only
-```
-
-### ags scan — Discover everything
-
-All skills, commands, agents, and rules across all agents.
-
-```bash
-ags scan --json                    # Everything
-ags scan --agent claude --json     # Claude Code only
-ags scan --type agent --json       # Subagents only
-ags scan --scope local --json      # Project-level only
-ags scan --scope global --json     # User-level only
-```
-
-**Health badges in output:**
-- `STALE` — not modified in 30+ days
-- `HEAVY` — over 5,000 characters
-- `OVERSIZED` — over 500 lines
-- `CONFLICT` — same name exists at different paths
-- `SHARED` — same file used by multiple agents
 
 ### ags skill-cost — Context budget breakdown
 
-Per-skill token costs ranked by size, with optimization suggestions.
+Per-skill token costs ranked by size, with optimization suggestions. Uses the same `scanAll()` discovery as `scan`.
 
 ```bash
 ags skill-cost --json
@@ -166,12 +141,6 @@ ags rm ~/.claude/agents/old.md --json     # Remove by path
 ags stats --json                          # Last 30 days
 ags stats --period 7d --json              # Last 7 days
 ags stats --period all-time --json        # Everything
-```
-
-### ags list-agents — Installed agents
-
-```bash
-ags list-agents --json
 ```
 
 ## Error handling

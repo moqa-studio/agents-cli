@@ -15,8 +15,10 @@ export function computeBadges(
   const badges: HealthBadge[] = [];
   const now = Math.floor(Date.now() / 1000);
 
-  // STALE: not modified in 30+ days
-  if (now - skill.lastModified > THIRTY_DAYS) {
+  // STALE: not modified in 30+ days — only for project-scope skills
+  // User-level skills are installed tools; their file mtime reflects install
+  // date, not relevance. Git history is unavailable outside repos.
+  if (skill.scope === "project" && now - skill.lastModified > THIRTY_DAYS) {
     badges.push("STALE");
   }
 

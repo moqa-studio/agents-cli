@@ -15,7 +15,7 @@ const SHORT_FLAGS: Record<string, string> = {
 };
 
 // Flags that never take a value (always boolean)
-const BOOLEAN_FLAGS = new Set(["json", "help", "version", "dry-run"]);
+const BOOLEAN_FLAGS = new Set(["json", "help", "version", "dry-run", "installed"]);
 
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
@@ -97,10 +97,13 @@ ${c.bold("Options:")}
   --agent X     Filter by agent: claude, cursor, codex (comma-separated)
   --type X      Filter by type: skill, command, rule, agent
   --scope X     Filter by scope: local, global, all (default: all)
+  --installed   Show which agents are installed (binary, paths, skill count)
   --json        Output as JSON
 
 ${c.bold("Examples:")}
   ags scan                        Show everything
+  ags scan --type skill           Skills only (replaces list-skills)
+  ags scan --installed            Which agents are installed
   ags scan --scope local          Project-level only
   ags scan --scope global         User-level only
   ags scan --agent claude         Claude Code only
@@ -186,35 +189,6 @@ ${c.bold("Examples:")}
   ags stats --period 2026-03-01   Since a specific date
 `,
 
-  "list-agents": `
-${c.bold("ags list-agents")} — Show installed agents
-
-${c.bold("Usage:")}  ags list-agents [options]
-
-${c.bold("Options:")}
-  --json        Output as JSON
-
-${c.bold("Shows:")}
-  Which agents (Claude Code, Cursor, Codex) are installed,
-  how many skills each has, and which directories are active.
-`,
-
-  "list-skills": `
-${c.bold("ags list-skills")} — List all installed skills
-
-${c.bold("Usage:")}  ags list-skills [options]
-
-${c.bold("Options:")}
-  --agent X     Filter by agent: claude, cursor, codex
-  --scope X     Filter by scope: local, global, all (default: all)
-  --json        Output as JSON
-
-${c.bold("Examples:")}
-  ags list-skills                     All skills
-  ags list-skills --agent claude      Claude Code only
-  ags list-skills --scope local       Project-level only
-`,
-
   context: `
 ${c.bold("ags context")} — What's loaded into your agent's context
 
@@ -270,15 +244,13 @@ ${c.bold("ags")} v${VERSION} — Agent Skills CLI
 ${c.bold("Usage:")}  ags <command> [options]
 
 ${c.bold("Commands:")}
-  scan          Discover all skills, commands, agents, and rules
-  list-skills   List all installed skills
+  scan          Discover skills, commands, agents, rules (--type, --installed)
   context       What's loaded into your agent's context
   lint          Validate skill files for quality issues
   skill-cost    How much context your skills consume
   grab <url>    Install skill from GitHub URL
   rm <name>     Remove a skill, command, agent, or rule
   stats         Usage stats and activity dashboard
-  list-agents   Show installed agents
 
 ${c.bold("Global options:")}
   --json        Output as JSON (all commands)
@@ -320,14 +292,6 @@ async function main(): Promise<void> {
     }
     case "stats": {
       const { run } = await import("./commands/stats");
-      return run(args);
-    }
-    case "list-agents": {
-      const { run } = await import("./commands/list-agents");
-      return run(args);
-    }
-    case "list-skills": {
-      const { run } = await import("./commands/list-skills");
       return run(args);
     }
     case "context": {

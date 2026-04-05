@@ -1,11 +1,12 @@
+import { dirname } from "path";
 import { statSync } from "fs";
 
 export async function getLastModified(filePath: string): Promise<number> {
-  // Try git first
+  // Try git in the file's own directory (not cwd)
   try {
     const proc = Bun.spawn(
       ["git", "log", "-1", "--format=%ct", "--", filePath],
-      { stdout: "pipe", stderr: "pipe" }
+      { stdout: "pipe", stderr: "pipe", cwd: dirname(filePath) }
     );
     const exitCode = await proc.exited;
     if (exitCode === 0) {

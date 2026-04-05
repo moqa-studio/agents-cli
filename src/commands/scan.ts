@@ -1,6 +1,12 @@
+import { existsSync } from "fs";
 import type { ParsedArgs, AgentName, SkillType, ScanResult, DiscoveredSkill } from "../types";
 import { scanAll } from "../core/scanner";
-import { isValidAgentName } from "../core/agents";
+import {
+  getAllAgentConfigs,
+  getBinaryPath,
+  resolveAgentPaths,
+  findProjectRoot,
+} from "../core/agents";
 import { formatTokens } from "../core/tokens";
 import {
   printError,
@@ -10,8 +16,11 @@ import {
   formatAgent,
   formatAgents,
   formatType,
+  formatScope,
+  scopeLabel,
   shortenPath,
   parseScopeFlag,
+  parseAgentFlag,
   c,
 } from "../utils/output";
 
@@ -27,16 +36,7 @@ export async function run(args: ParsedArgs): Promise<void> {
   const json = args.flags.json === true;
 
   // Parse filters
-  let agents: AgentName[] | undefined;
-  if (args.flags.agent) {
-    const names = String(args.flags.agent).split(",");
-    for (const name of names) {
-      if (!isValidAgentName(name)) {
-        return printError(`Unknown agent: ${name}`, "INVALID_AGENT", json);
-      }
-    }
-    agents = names as AgentName[];
-  }
+  const agents = parseAgentFlag(args.flags.agent, json);
 
   let types: SkillType[] | undefined;
   if (args.flags.type) {
@@ -48,12 +48,20 @@ export async function run(args: ParsedArgs): Promise<void> {
   }
 
   const scopes = parseScopeFlag(args.flags.scope, json);
+  const showInstalled = args.flags.installed === true;
+
+  // If --installed, show agent installation info
+  if (showInstalled) {
+    return runInstalled(json);
+  }
 
   const skills = await scanAll({ agents, types, scopes });
 
   // Build summary
+  const totalTokens = skills.reduce((sum, s) => sum + s.tokenEstimate, 0);
   const summary: ScanResult["summary"] = {
     total: skills.length,
+    totalTokens,
     byAgent: {},
     byType: {},
     byScope: {},
@@ -117,7 +125,7 @@ export async function run(args: ParsedArgs): Promise<void> {
     .join(" | ");
 
   console.log(
-    `${c.dim("Total:")} ${summary.total} | ${agentParts} | ${typeParts} | ${scopeParts}`
+    `${c.dim("Total:")} ${summary.total} | ${agentParts} | ${typeParts} | ${scopeParts} | ${formatTokens(totalTokens)} tokens`
   );
 
   if (Object.keys(summary.badges).length > 0) {
@@ -130,6 +138,65 @@ export async function run(args: ParsedArgs): Promise<void> {
   console.log();
 }
 
+// ── --installed: show agent installation info ───────────────────
+
+async function runInstalled(json: boolean): Promise<void> {
+  const projectRoot = findProjectRoot();
+  const configs = getAllAgentConfigs();
+  const allSkills = await scanAll({ projectRoot });
+
+  const agents = [];
+
+  for (const config of configs) {
+    const binaryPath = await getBinaryPath(config.name);
+    const installed = binaryPath !== null;
+
+    // Resolve paths and check existence
+    const resolved = resolveAgentPaths(config, projectRoot);
+    const seenDirs = new Set<string>();
+    const paths: { scope: string; path: string; exists: boolean }[] = [];
+
+    for (const rp of resolved) {
+      const baseDir = rp.absolutePattern.split("*")[0].replace(/\/$/, "");
+      if (seenDirs.has(baseDir)) continue;
+      seenDirs.add(baseDir);
+      paths.push({ scope: rp.scope, path: baseDir, exists: existsSync(baseDir) });
+    }
+
+    const skillCount = allSkills.filter((s) => s.agents.includes(config.name)).length;
+
+    agents.push({
+      name: config.name,
+      displayName: config.displayName,
+      installed,
+      binaryPath,
+      skillCount,
+      paths,
+    });
+  }
+
+  if (json) {
+    printJson({ ok: true, data: { agents } });
+  }
+
+  console.log(c.bold("\nAGS Agents\n"));
+
+  const rows = agents.map((a) => {
+    const status = a.installed ? c.green("✓") : c.red("✗");
+    const pathSummary = a.paths
+      .filter((p) => p.exists)
+      .map((p) => shortenPath(p.path))
+      .join(", ") || c.dim("—");
+
+    return [a.displayName, status, String(a.skillCount), pathSummary];
+  });
+
+  console.log(table(["AGENT", "INSTALLED", "SKILLS", "ACTIVE PATHS"], rows));
+  console.log();
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+
 function renderRow(s: DiscoveredSkill): string[] {
   return [
     c.bold(s.name),
@@ -140,22 +207,3 @@ function renderRow(s: DiscoveredSkill): string[] {
     c.dim(shortenPath(s.filePath)),
   ];
 }
-
-function formatScope(scope: string): string {
-  switch (scope) {
-    case "project": return c.blue("local");
-    case "user": return c.cyan("global");
-    case "admin": return c.yellow("admin");
-    case "system": return c.dim("system");
-    default: return scope;
-  }
-}
-
-function scopeLabel(scope: string): string {
-  switch (scope) {
-    case "project": return "local";
-    case "user": return "global";
-    default: return scope;
-  }
-}
-

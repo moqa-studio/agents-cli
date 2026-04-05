@@ -19,11 +19,14 @@ describe("computeBadges", () => {
     expect(computeBadges(s, { allSkills: [s] })).toEqual([]);
   });
 
-  test("STALE at 31 days, not at 29", () => {
+  test("STALE at 31 days for project-scope, not for user-scope", () => {
     const day = 24 * 60 * 60;
     const now = Math.floor(Date.now() / 1000);
-    expect(computeBadges(makeSkill({ lastModified: now - 31 * day }), { allSkills: [] })).toContain("STALE");
-    expect(computeBadges(makeSkill({ lastModified: now - 29 * day }), { allSkills: [] })).not.toContain("STALE");
+    // Project-scope: STALE at 31 days, not at 29
+    expect(computeBadges(makeSkill({ scope: "project", lastModified: now - 31 * day }), { allSkills: [] })).toContain("STALE");
+    expect(computeBadges(makeSkill({ scope: "project", lastModified: now - 29 * day }), { allSkills: [] })).not.toContain("STALE");
+    // User-scope: never STALE (mtime reflects install date, not relevance)
+    expect(computeBadges(makeSkill({ scope: "user", lastModified: now - 31 * day }), { allSkills: [] })).not.toContain("STALE");
   });
 
   test("HEAVY at 5001 chars, OVERSIZED at 501 lines", () => {

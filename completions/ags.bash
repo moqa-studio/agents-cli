@@ -3,7 +3,7 @@ _ags() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  commands="scan skill-cost grab rm stats list-agents"
+  commands="scan context lint skill-cost grab rm stats"
 
   if [[ ${COMP_CWORD} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "${commands}" -- "${cur}") )
@@ -33,7 +33,9 @@ _ags() {
   local opts="--json --help"
 
   case "${cmd}" in
-    scan)       opts="--agent --type --scope --json --help" ;;
+    scan)       opts="--agent --type --scope --installed --json --help" ;;
+    context)    opts="--agent --json --help" ;;
+    lint)       opts="--agent --scope --json --help" ;;
     skill-cost) opts="--scope --json --help" ;;
     grab)       opts="--to --dry-run --json --help" ;;
     rm|remove)  opts="--agent --dry-run --json --help" ;;

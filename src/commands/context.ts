@@ -1,16 +1,14 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { resolve, basename, join } from "path";
-import type { ParsedArgs, AgentName, DiscoveredSkill } from "../types";
+import type { ParsedArgs, AgentName } from "../types";
 import { scanAll } from "../core/scanner";
 import {
   getAllAgentConfigs,
   findProjectRoot,
   getContextLimit,
-  expandPattern,
-  isValidAgentName,
 } from "../core/agents";
 import { estimateTokens, formatTokens, tokenBar } from "../core/tokens";
-import { printJson, printError, formatAgent, shortenPath, c } from "../utils/output";
+import { printJson, parseAgentFlag, formatAgent, shortenPath, c } from "../utils/output";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -41,17 +39,7 @@ export async function run(args: ParsedArgs): Promise<void> {
   const json = args.flags.json === true;
   const projectRoot = findProjectRoot();
 
-  // Optional agent filter
-  let agentFilter: AgentName[] | undefined;
-  if (args.flags.agent) {
-    const names = String(args.flags.agent).split(",");
-    for (const name of names) {
-      if (!isValidAgentName(name)) {
-        return printError(`Unknown agent: ${name}`, "INVALID_AGENT", json);
-      }
-    }
-    agentFilter = names as AgentName[];
-  }
+  const agentFilter = parseAgentFlag(args.flags.agent, json);
 
   const configs = getAllAgentConfigs();
   const allSkills = await scanAll({ projectRoot });

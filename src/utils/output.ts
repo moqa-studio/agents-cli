@@ -157,6 +157,26 @@ export function formatAgents(names: AgentName[]): string {
   return names.map(formatAgent).join(c.dim(","));
 }
 
+// ── Scope formatting ────────────────────────────────────────────
+
+export function formatScope(scope: SkillScope): string {
+  switch (scope) {
+    case "project": return c.blue("local");
+    case "user": return c.cyan("global");
+    case "admin": return c.yellow("admin");
+    case "system": return c.dim("system");
+    default: return scope;
+  }
+}
+
+export function scopeLabel(scope: string): string {
+  switch (scope) {
+    case "project": return "local";
+    case "user": return "global";
+    default: return scope;
+  }
+}
+
 // ── Type formatting ─────────────────────────────────────────────
 
 export function formatType(type: SkillType): string {
@@ -167,5 +187,21 @@ export function formatType(type: SkillType): string {
     case "agent":   return c.cyan("agent");
     default:        return type;
   }
+}
+
+// ── Agent flag parsing ──────────────────────────────────────────
+
+export function parseAgentFlag(
+  raw: string | boolean | undefined,
+  json: boolean
+): AgentName[] | undefined {
+  if (!raw) return undefined;
+  const names = String(raw).split(",");
+  for (const name of names) {
+    if (!["claude", "cursor", "codex"].includes(name)) {
+      return printError(`Unknown agent: ${name}`, "INVALID_AGENT", json);
+    }
+  }
+  return names as AgentName[];
 }
 
