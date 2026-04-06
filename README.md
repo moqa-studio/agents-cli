@@ -1,4 +1,4 @@
-# ags
+# ags - Agents CLI
 
 [![CI](https://github.com/moqa-studio/agents-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/moqa-studio/agents-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
