@@ -83,10 +83,10 @@ jobs:
       - run: bun install
 
       - name: Publish to npm
-        run: bunx npm publish --access public
-        env:
-          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+          bunx npm publish --access public
+          rm -f .npmrc
 
   update-homebrew:
     needs: release
