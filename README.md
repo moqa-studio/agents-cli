@@ -8,7 +8,7 @@ One CLI to manage skills, commands, and rules across AI coding assistants.
 Your skills are scattered across `~/.claude/skills/`, `.cursor/rules/`, `CLAUDE.md`, `.cursorrules` — different formats, different locations, no visibility into what's actually loaded. **ags** gives you a single command to scan, lint, measure, and manage all of it.
 
 <p align="center">
-  <img src="docs/screenshots/help.png" alt="ags --help" width="700">
+  <img src="docs/screenshots/scan.png" alt="ags scan" width="700">
 </p>
 
 ## Install
