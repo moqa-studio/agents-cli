@@ -7,18 +7,9 @@ One CLI to manage skills, commands, and rules across AI coding assistants.
 
 Your skills are scattered across `~/.claude/skills/`, `.cursor/rules/`, `CLAUDE.md`, `.cursorrules` — different formats, different locations, no visibility into what's actually loaded. **ags** gives you a single command to scan, lint, measure, and manage all of it.
 
-```
-$ ags scan
-
-  NAME              TYPE     SCOPE   AGENTS        TOKENS
-  ──────────────────────────────────────────────────────────
-  ags-manager       skill    local   ◈ claude       2,847
-  code-review       skill    global  ◈ claude ⌘ cursor  1,204
-  api-guidelines    rule     local   ⌘ cursor         892
-  deploy-helper     command  global  ◈ claude         456
-
-  4 items across 2 agents · 5,399 tokens
-```
+<p align="center">
+  <img src="docs/screenshots/help.png" alt="ags --help" width="700">
+</p>
 
 ## Install
 
@@ -69,6 +60,8 @@ ags scan --scope local              # project-level only
 ags scan --installed                # which agents are installed
 ```
 
+<img src="docs/screenshots/scan.png" alt="ags scan" width="700">
+
 ### `ags context`
 
 See what's loaded into your agent's context — config files, skills, commands, memory, MCP servers.
@@ -78,6 +71,8 @@ ags context                         # all agents
 ags context --agent claude          # Claude Code only
 ```
 
+<img src="docs/screenshots/context.png" alt="ags context" width="700">
+
 ### `ags lint`
 
 Catch issues: missing frontmatter, short descriptions, oversized files, name conflicts, unsupported keys.
@@ -86,6 +81,8 @@ Catch issues: missing frontmatter, short descriptions, oversized files, name con
 ags lint                            # everything
 ags lint --agent cursor             # Cursor rules only
 ```
+
+<img src="docs/screenshots/lint.png" alt="ags lint" width="700">
 
 ### `ags skill-cost`
 
@@ -124,6 +121,8 @@ ags stats                           # last 30 days
 ags stats --period 7d               # last week
 ags stats --period all-time         # everything
 ```
+
+<img src="docs/screenshots/stats.png" alt="ags stats" width="700">
 
 All commands support `--json` for structured output and `--help` for usage details.
 
