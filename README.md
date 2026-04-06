@@ -13,17 +13,14 @@ Your skills are scattered across `~/.claude/skills/`, `.cursor/rules/`, `CLAUDE.
 
 ## Install
 
-Requires [Bun](https://bun.sh) v1.0+.
-
 ```bash
+# Homebrew
+brew install moqa-studio/tap/agents-cli
+
+# npm / bun (requires Bun v1.0+)
 bun install -g @moqa/ags
-```
 
-Or from source:
-
-```bash
-git clone https://github.com/moqa-studio/agents-cli.git
-cd agents-cli && bun install && bun link
+# Or download a binary from GitHub Releases
 ```
 
 ### Shell completions
