@@ -1,0 +1,82 @@
+#compdef ags
+
+_ags() {
+  local -a commands
+  commands=(
+    'scan:Discover all skills, commands, agents, and rules'
+    'context:What'\''s loaded into your agent'\''s context'
+    'lint:Validate skill files for quality issues'
+    'skill-cost:How much context your skills consume'
+    'grab:Install skill from GitHub URL'
+    'rm:Remove a skill, command, agent, or rule'
+    'stats:Usage stats and activity dashboard'
+  )
+
+  local -a global_opts
+  global_opts=(
+    '--json[Output as JSON]'
+    '--help[Show help]'
+    '--version[Show version]'
+  )
+
+  if (( CURRENT == 2 )); then
+    _describe 'command' commands
+    return
+  fi
+
+  case "${words[2]}" in
+    scan)
+      _arguments \
+        '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--type[Filter by type]:type:(skill command rule agent)' \
+        '--scope[Filter by scope]:scope:(local global all)' \
+        '--installed[Show which agents are installed]' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    context)
+      _arguments \
+        '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    lint)
+      _arguments \
+        '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--scope[Filter by scope]:scope:(local global all)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    skill-cost|budget)
+      _arguments \
+        '--scope[Filter by scope]:scope:(local global all)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    grab)
+      _arguments \
+        '--to[Target agent]:agent:(claude cursor codex)' \
+        '--dry-run[Preview without writing files]' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    rm|remove)
+      _arguments \
+        '--agent[Filter by agent]:agent:(claude cursor codex)' \
+        '--dry-run[Preview without deleting files]' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    stats)
+      _arguments \
+        '--period[Time range]:period:(7d 14d 30d 90d 6m 1y week month year all-time)' \
+        '--json[Output as JSON]' \
+        '--help[Show help]'
+      ;;
+    *)
+      _arguments $global_opts
+      ;;
+  esac
+}
+
+_ags "$@"
