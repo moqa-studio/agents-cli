@@ -1,17 +1,28 @@
 {
   "name": "@moqa/ags",
   "version": "0.1.0",
+  "description": "AI agents CLI tool",
   "type": "module",
   "bin": {
     "ags": "./src/index.ts"
   },
+  "files": [
+    "src",
+    "completions"
+  ],
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "bun run build.ts",
     "test": "bun test",
-    "typecheck": "bun run --bun tsc --noEmit"
+    "typecheck": "bun run --bun tsc --noEmit",
+    "release": "bun run scripts/release.ts"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moqa-studio/agents-cli.git"
+  },
+  "keywords": ["agents", "cli", "ai"],
   "devDependencies": {
     "bun-types": "^1.3.11"
   }

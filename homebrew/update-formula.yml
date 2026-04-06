@@ -1,0 +1,72 @@
+# This workflow goes in the moqa-studio/homebrew-tap repo at .github/workflows/update-formula.yml
+name: Update Formula
+
+on:
+  repository_dispatch:
+    types: [update-formula]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update agents-cli formula
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          DARWIN_ARM64_SHA="${{ github.event.client_payload.darwin_arm64_sha }}"
+          DARWIN_X64_SHA="${{ github.event.client_payload.darwin_x64_sha }}"
+          LINUX_X64_SHA="${{ github.event.client_payload.linux_x64_sha }}"
+
+          cat > Formula/agents-cli.rb << FORMULA
+          class AgentsCli < Formula
+            desc "AI agents CLI tool"
+            homepage "https://github.com/moqa-studio/agents-cli"
+            license "MIT"
+            version "${VERSION}"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/moqa-studio/agents-cli/releases/download/v${VERSION}/ags-darwin-arm64"
+                sha256 "${DARWIN_ARM64_SHA}"
+
+                def install
+                  bin.install "ags-darwin-arm64" => "ags"
+                end
+              else
+                url "https://github.com/moqa-studio/agents-cli/releases/download/v${VERSION}/ags-darwin-x64"
+                sha256 "${DARWIN_X64_SHA}"
+
+                def install
+                  bin.install "ags-darwin-x64" => "ags"
+                end
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.intel?
+                url "https://github.com/moqa-studio/agents-cli/releases/download/v${VERSION}/ags-linux-x64"
+                sha256 "${LINUX_X64_SHA}"
+
+                def install
+                  bin.install "ags-linux-x64" => "ags"
+                end
+              end
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/ags --version")
+            end
+          end
+          FORMULA
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/agents-cli.rb
+          git commit -m "Update agents-cli to ${{ github.event.client_payload.version }}"
+          git push

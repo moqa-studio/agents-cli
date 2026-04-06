@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            name: ags-darwin-arm64
+            os: macos-latest
+          - target: bun-darwin-x64
+            name: ags-darwin-x64
+            os: macos-latest
+          - target: bun-linux-x64
+            name: ags-linux-x64
+            os: ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Build binary
+        run: |
+          mkdir -p dist
+          bun build --compile --target=${{ matrix.target }} --outfile=dist/${{ matrix.name }} ./src/index.ts
+
+      - name: Generate checksum
+        run: |
+          cd dist
+          shasum -a 256 ${{ matrix.name }} > ${{ matrix.name }}.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            dist/${{ matrix.name }}
+            dist/${{ matrix.name }}.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/ags-*
+            completions/*
+
+  publish-npm:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Publish to npm
+        run: bunx npm publish --access public
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download checksums
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Read checksums
+        id: checksums
+        run: |
+          echo "darwin_arm64=$(awk '{print $1}' dist/ags-darwin-arm64.sha256)" >> "$GITHUB_OUTPUT"
+          echo "darwin_x64=$(awk '{print $1}' dist/ags-darwin-x64.sha256)" >> "$GITHUB_OUTPUT"
+          echo "linux_x64=$(awk '{print $1}' dist/ags-linux-x64.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Update Homebrew formula
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: moqa-studio/homebrew-tap
+          event-type: update-formula
+          client-payload: |
+            {
+              "version": "${{ steps.version.outputs.version }}",
+              "darwin_arm64_sha": "${{ steps.checksums.outputs.darwin_arm64 }}",
+              "darwin_x64_sha": "${{ steps.checksums.outputs.darwin_x64 }}",
+              "linux_x64_sha": "${{ steps.checksums.outputs.linux_x64 }}"
+            }
